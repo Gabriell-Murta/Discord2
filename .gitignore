@@ -1,0 +1,5 @@
+node_modules/
+.env
+minha-chave-privada.json
+cloudflared.exe
+.claude

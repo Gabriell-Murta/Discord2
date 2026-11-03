@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sala de Voz P2P</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --fundo: #14161c;
+    --fundo-card: #1e212b;
+    --borda: #2c3040;
+    --texto: #e8e9ee;
+    --texto-fraco: #9198a8;
+    --destaque: #4f7cff;
+    --perigo: #e5484d;
+    --ativo: #2fbf71;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--fundo);
+    color: var(--texto);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+
+  header.cabecalho {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--borda);
+  }
+
+  header.cabecalho h1 {
+    font-size: 1.1rem;
+    margin: 0;
+    color: var(--texto-fraco);
+    font-weight: 600;
+  }
+
+  .selecao-dispositivos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .selecao-dispositivos label {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.75rem;
+    color: var(--texto-fraco);
+    gap: 0.25rem;
+  }
+
+  select, input[type="text"] {
+    background: var(--fundo-card);
+    color: var(--texto);
+    border: 1px solid var(--borda);
+    border-radius: 6px;
+    padding: 0.45rem 0.6rem;
+    font-size: 0.9rem;
+    min-width: 200px;
+  }
+
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+  }
+
+  /* !important garante que o atributo hidden sempre vença, independente da
+     especificidade de outras regras (ex. #tela-inicial define display:flex
+     com especificidade de ID, que sem isso venceria sobre esta regra). */
+  .tela[hidden] { display: none !important; }
+
+  #tela-inicial {
+    max-width: 360px;
+    margin: 3rem auto 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  #tela-inicial label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.9rem;
+    color: var(--texto-fraco);
+  }
+
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+    padding: 0.6rem 1.1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    background: var(--destaque);
+    color: #fff;
+    transition: opacity 0.15s;
+  }
+
+  button:hover { opacity: 0.85; }
+  button.botao-perigo { background: var(--perigo); }
+  button.ativo { background: var(--ativo); }
+
+  .erro {
+    color: var(--perigo);
+    font-size: 0.85rem;
+  }
+
+  .dica {
+    color: var(--texto-fraco);
+    font-size: 0.78rem;
+    margin: 0;
+  }
+
+  .dica code {
+    background: var(--fundo-card);
+    border: 1px solid var(--borda);
+    border-radius: 4px;
+    padding: 0.05rem 0.3rem;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  }
+
+  .caixa-chave {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    font-size: 0.9rem;
+    color: var(--texto-fraco);
+  }
+
+  textarea#texto-token {
+    background: var(--fundo-card);
+    color: var(--texto);
+    border: 1px solid var(--borda);
+    border-radius: 6px;
+    padding: 0.5rem 0.6rem;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 0.75rem;
+    resize: none;
+  }
+
+  .info-sala {
+    margin-bottom: 1rem;
+    color: var(--texto-fraco);
+    font-size: 0.9rem;
+  }
+
+  .grid-participantes {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1rem;
+  }
+
+  .card-participante {
+    background: var(--fundo-card);
+    border: 1px solid var(--borda);
+    border-radius: 10px;
+    padding: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    min-height: 120px;
+  }
+
+  .nome-participante {
+    font-size: 0.85rem;
+    color: var(--texto-fraco);
+  }
+
+  .status-mic {
+    font-size: 0.8rem;
+  }
+
+  .midias { display: flex; flex-direction: column; gap: 0.5rem; }
+
+  .video-remoto {
+    width: 100%;
+    border-radius: 8px;
+    background: #000;
+  }
+
+  .barra-controles {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .area-destaque {
+    margin-bottom: 1.25rem;
+  }
+
+  .area-destaque[hidden] { display: none !important; }
+
+  .destaque-wrapper {
+    position: relative;
+  }
+
+  #video-destaque {
+    width: 100%;
+    max-height: 60vh;
+    border-radius: 10px;
+    background: #000;
+    display: block;
+  }
+
+  .botao-tela-cheia,
+  .botao-alternar-miniaturas {
+    position: absolute;
+    top: 0.6rem;
+    background: rgba(20, 22, 28, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    font-size: 0.78rem;
+    padding: 0.4rem 0.7rem;
+  }
+
+  .botao-tela-cheia { right: 0.6rem; }
+  .botao-alternar-miniaturas { right: 8.5rem; }
+  .botao-alternar-miniaturas[hidden] { display: none !important; }
+
+  .controle-volume-destaque {
+    position: absolute;
+    top: 0.6rem;
+    left: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(20, 22, 28, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.75rem;
+    color: var(--texto-fraco);
+  }
+
+  .controle-volume-destaque[hidden] { display: none !important; }
+  .controle-volume-destaque input[type="range"] { width: 100px; }
+
+  .miniaturas-destaque {
+    margin-top: 0.6rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  .miniaturas-destaque[hidden] { display: none !important; }
+
+  .miniatura-tela {
+    background: var(--fundo-card);
+    border: 2px solid var(--borda);
+    border-radius: 8px;
+    padding: 0;
+    width: 140px;
+    overflow: hidden;
+    position: relative;
+    line-height: 0;
+  }
+
+  .miniatura-tela.ativo {
+    border-color: var(--destaque);
+  }
+
+  .miniatura-tela video {
+    width: 100%;
+    height: 78px;
+    object-fit: cover;
+    background: #000;
+    display: block;
+  }
+
+  .miniatura-nome {
+    display: block;
+    line-height: normal;
+    font-size: 0.72rem;
+    color: var(--texto);
+    background: rgba(0, 0, 0, 0.55);
+    padding: 0.2rem 0.4rem;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Modo tela cheia: o video ocupa a tela toda (sem sobrar espaco pra
+     tarja preta); a faixa de miniaturas fica flutuando por cima dele,
+     perto da base, em vez de empurrar o video pra cima. */
+  .destaque-wrapper:fullscreen {
+    background: #000;
+  }
+
+  .destaque-wrapper:fullscreen #video-destaque {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    object-fit: contain;
+  }
+
+  .destaque-wrapper:fullscreen .miniaturas-destaque {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 1.2rem;
+    justify-content: center;
+    padding: 0 1rem;
+  }
+
+  .destaque-wrapper:fullscreen .miniatura-tela {
+    background: rgba(20, 22, 28, 0.85);
+  }
+</style>
+</head>
+<body>
+
+<header class="cabecalho">
+  <h1>Sala de Voz P2P</h1>
+  <div class="selecao-dispositivos">
+    <label>Microfone
+      <select id="select-microfone"></select>
+    </label>
+    <label id="campo-alto-falante">Alto-falante
+      <select id="select-alto-falante"></select>
+    </label>
+  </div>
+</header>
+
+<main>
+  <section id="tela-inicial" class="tela">
+    <label>Nome da sala
+      <input id="input-sala" type="text" placeholder="ex: minha-sala">
+    </label>
+    <div class="caixa-chave">
+      <label for="texto-token">Token de acesso</label>
+      <textarea id="texto-token" rows="3" placeholder="cole aqui o token gerado por node gerar-token.js"></textarea>
+      <p class="dica">Gere sua chave com <code>node gerar-chaves.js</code>, mande a chave publica impressa para quem administra o servidor autorizar, depois gere seu token com <code>node gerar-token.js</code> e cole ele aqui. O token fica salvo neste navegador (nao precisa colar de novo da proxima vez).</p>
+    </div>
+    <button id="botao-entrar">Entrar na sala</button>
+    <p id="mensagem-erro" class="erro" hidden></p>
+  </section>
+
+  <section id="tela-chamada" class="tela" hidden>
+    <div class="info-sala">Sala: <strong id="nome-sala-atual"></strong></div>
+    <div id="area-destaque" class="area-destaque" hidden>
+      <div id="destaque-wrapper" class="destaque-wrapper">
+        <video id="video-destaque" autoplay playsinline></video>
+        <div id="controle-volume-destaque" class="controle-volume-destaque">
+          <label for="volume-destaque">Volume</label>
+          <input type="range" id="volume-destaque" min="0" max="100" value="100">
+        </div>
+        <button id="botao-alternar-miniaturas" type="button" class="botao-alternar-miniaturas" hidden>Ocultar participantes</button>
+        <button id="botao-tela-cheia" type="button" class="botao-tela-cheia">Tela cheia</button>
+        <div id="miniaturas-destaque" class="miniaturas-destaque"></div>
+      </div>
+    </div>
+    <div id="grid-participantes" class="grid-participantes"></div>
+    <div class="barra-controles">
+      <button id="botao-mutar">Mutar microfone</button>
+      <button id="botao-compartilhar-tela">Compartilhar tela</button>
+      <button id="botao-trocar-tela" hidden>Trocar tela compartilhada</button>
+      <button id="botao-sair" class="botao-perigo">Sair da sala</button>
+    </div>
+  </section>
+</main>
+
+<script>
+// ---------------------------------------------------------------------------
+// Estado global do cliente
+// ---------------------------------------------------------------------------
+
+let ws = null;
+let myId = null;               // id atribuido pelo servidor a esta conexao
+let localStream = null;        // stream do microfone local
+let screenStream = null;       // stream de compartilhamento de tela (se ativo)
+let emChamada = false;
+let microfoneMutado = false;
+let saidaSelecionada = '';     // deviceId do alto-falante escolhido
+let saindoIntencionalmente = false;
+
+// peers: peerId -> { pc, polite, makingOffer, ignoreOffer, micSender, screenVideoSender, screenAudioSender }
+const peers = new Map();
+
+// nomesDosPeers: peerId -> nome (vindo do servidor, com base em chaves-autorizadas.json)
+const nomesDosPeers = new Map();
+
+// telasAtivas: chave ('local' ou peerId) -> { nome, stream } de quem esta
+// compartilhando tela agora. focoAtual decide qual delas aparece grande na
+// area de destaque; com mais de uma pessoa compartilhando, aparecem
+// miniaturas clicaveis para trocar o foco.
+const telasAtivas = new Map();
+let focoAtual = null;
+let miniaturasVisiveis = true;
+
+// Referencias de elementos
+const selectMicrofone = document.getElementById('select-microfone');
+const selectAltoFalante = document.getElementById('select-alto-falante');
+const campoAltoFalante = document.getElementById('campo-alto-falante');
+const inputSala = document.getElementById('input-sala');
+const textoToken = document.getElementById('texto-token');
+const botaoEntrar = document.getElementById('botao-entrar');
+const mensagemErro = document.getElementById('mensagem-erro');
+const telaInicial = document.getElementById('tela-inicial');
+const telaChamada = document.getElementById('tela-chamada');
+const nomeSalaAtual = document.getElementById('nome-sala-atual');
+const gridParticipantes = document.getElementById('grid-participantes');
+const areaDestaque = document.getElementById('area-destaque');
+const destaqueWrapper = document.getElementById('destaque-wrapper');
+const videoDestaque = document.getElementById('video-destaque');
+const controleVolumeDestaque = document.getElementById('controle-volume-destaque');
+const inputVolumeDestaque = document.getElementById('volume-destaque');
+const botaoTelaCheia = document.getElementById('botao-tela-cheia');
+const botaoAlternarMiniaturas = document.getElementById('botao-alternar-miniaturas');
+const miniaturasDestaque = document.getElementById('miniaturas-destaque');
+const botaoMutar = document.getElementById('botao-mutar');
+const botaoCompartilharTela = document.getElementById('botao-compartilhar-tela');
+const botaoTrocarTela = document.getElementById('botao-trocar-tela');
+const botaoSair = document.getElementById('botao-sair');
+
+// O navegador so suporta escolher o alto-falante de saida se tiver setSinkId.
+// O Firefox nao implementa essa API, entao escondemos o seletor nesse caso.
+const suportaEscolhaDeSaida = typeof HTMLMediaElement !== 'undefined'
+  && typeof HTMLMediaElement.prototype.setSinkId === 'function';
+if (!suportaEscolhaDeSaida) {
+  campoAltoFalante.title = 'Este navegador nao permite escolher o dispositivo de saida de audio';
+  campoAltoFalante.style.display = 'none';
+}
+
+// ---------------------------------------------------------------------------
+// Dispositivos de audio (microfone / alto-falante)
+// ---------------------------------------------------------------------------
+
+// Preenche um <select> com a lista de dispositivos de um certo tipo.
+// Os rotulos (label) so vem preenchidos depois que o usuario concede
+// permissao de microfone pelo menos uma vez; antes disso usamos um nome
+// generico numerado como alternativa.
+function preencherSelect(select, dispositivos, prefixoRotulo) {
+  const valorAtual = select.value;
+  select.innerHTML = '';
+  dispositivos.forEach((dispositivo, indice) => {
+    const opcao = document.createElement('option');
+    opcao.value = dispositivo.deviceId;
+    opcao.textContent = dispositivo.label || `${prefixoRotulo} ${indice + 1}`;
+    select.appendChild(opcao);
+  });
+  if (valorAtual && dispositivos.some((d) => d.deviceId === valorAtual)) {
+    select.value = valorAtual;
+  }
+}
+
+async function atualizarListaDeDispositivos() {
+  try {
+    const dispositivos = await navigator.mediaDevices.enumerateDevices();
+    preencherSelect(selectMicrofone, dispositivos.filter((d) => d.kind === 'audioinput'), 'Microfone');
+    if (suportaEscolhaDeSaida) {
+      preencherSelect(selectAltoFalante, dispositivos.filter((d) => d.kind === 'audiooutput'), 'Alto-falante');
+    }
+  } catch (erro) {
+    console.error('Nao foi possivel listar dispositivos de audio:', erro);
+  }
+}
+
+// Lista dispositivos assim que a pagina carrega (melhor esforco: sem
+// permissao concedida ainda, os rotulos reais podem nao aparecer) e
+// atualiza a lista sempre que o usuario plugar/desplugar um dispositivo.
+atualizarListaDeDispositivos();
+navigator.mediaDevices.addEventListener('devicechange', atualizarListaDeDispositivos);
+
+// Troca de alto-falante: aplica em todos os elementos de midia ja renderizados.
+selectAltoFalante.addEventListener('change', () => {
+  saidaSelecionada = selectAltoFalante.value;
+  document.querySelectorAll('#grid-participantes audio, #grid-participantes video, #video-destaque').forEach((elemento) => {
+    if (elemento.setSinkId) elemento.setSinkId(saidaSelecionada).catch((erro) => console.error(erro));
+  });
+});
+
+// Troca de microfone durante a chamada: pega uma nova stream com o
+// dispositivo escolhido e substitui a track em cada conexao via
+// replaceTrack, sem precisar renegociar (o tipo de midia nao muda).
+selectMicrofone.addEventListener('change', async () => {
+  if (!emChamada) return;
+  try {
+    const novoDeviceId = selectMicrofone.value;
+    const novaStream = await navigator.mediaDevices.getUserMedia({
+      audio: { deviceId: { exact: novoDeviceId } },
+    });
+    const novaTrack = novaStream.getAudioTracks()[0];
+    novaTrack.enabled = !microfoneMutado;
+
+    for (const estado of peers.values()) {
+      if (estado.micSender) await estado.micSender.replaceTrack(novaTrack);
+    }
+
+    if (localStream) localStream.getTracks().forEach((track) => track.stop());
+    localStream = novaStream;
+  } catch (erro) {
+    console.error('Erro ao trocar de microfone:', erro);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Token de acesso (autenticacao por chave publica/privada, estilo SSH)
+//
+// A chave privada NUNCA fica no navegador - ela e gerada e guardada como um
+// arquivo no computador de cada pessoa (scripts gerar-chaves.js e
+// gerar-token.js, que rodam localmente com Node). O que chega ate aqui e so
+// o TOKEN ja assinado, que essa pessoa cola manualmente nesse campo. O
+// navegador so guarda esse token (localStorage), para nao precisar colar de
+// novo a cada visita - ele nao sabe nada sobre a chave privada em si.
+// ---------------------------------------------------------------------------
+
+const CHAVE_LOCALSTORAGE_TOKEN = 'sala-voz-token-de-acesso';
+
+// Recupera um token salvo de uma visita anterior, se houver.
+const tokenSalvo = localStorage.getItem(CHAVE_LOCALSTORAGE_TOKEN);
+if (tokenSalvo) textoToken.value = tokenSalvo;
+
+// Salva o token a cada edicao, para a proxima visita ja vir preenchido.
+textoToken.addEventListener('input', () => {
+  localStorage.setItem(CHAVE_LOCALSTORAGE_TOKEN, textoToken.value.trim());
+});
+
+// ---------------------------------------------------------------------------
+// Entrar / sair da sala
+// ---------------------------------------------------------------------------
+
+// Preenche o nome da sala a partir do hash da URL (ex: #minhasala).
+if (location.hash.length > 1) {
+  inputSala.value = decodeURIComponent(location.hash.slice(1));
+}
+
+inputSala.addEventListener('keydown', (evento) => {
+  if (evento.key === 'Enter') entrarNaSala();
+});
+botaoEntrar.addEventListener('click', entrarNaSala);
+
+async function entrarNaSala() {
+  const nomeDaSala = inputSala.value.trim();
+  if (!nomeDaSala) {
+    exibirErro('Digite o nome da sala.');
+    return;
+  }
+
+  const token = textoToken.value.trim();
+  if (!token) {
+    exibirErro('Cole seu token de acesso (gerado com node gerar-token.js).');
+    return;
+  }
+
+  try {
+    const deviceId = selectMicrofone.value;
+    localStream = await navigator.mediaDevices.getUserMedia({
+      audio: deviceId ? { deviceId: { exact: deviceId } } : true,
+    });
+  } catch (erro) {
+    exibirErro('Nao foi possivel acessar o microfone: ' + erro.message);
+    return;
+  }
+
+  // Agora que a permissao foi concedida, os rotulos reais dos dispositivos
+  // ficam disponiveis - atualiza os selects com os nomes corretos.
+  await atualizarListaDeDispositivos();
+
+  location.hash = encodeURIComponent(nomeDaSala);
+  conectarWebSocket(nomeDaSala, token);
+}
+
+function exibirErro(texto) {
+  mensagemErro.textContent = texto;
+  mensagemErro.hidden = false;
+}
+
+function conectarWebSocket(nomeDaSala, token) {
+  // Reseta a flag para esta nova conexao: se ela cair sem ter sido a
+  // pessoa quem pediu (sairDaSala/auth-error), o listener de 'close' abaixo
+  // deve mostrar o erro normalmente.
+  saindoIntencionalmente = false;
+  const protocolo = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${protocolo}//${location.host}`);
+
+  ws.addEventListener('open', () => {
+    ws.send(JSON.stringify({ type: 'join', room: nomeDaSala, token }));
+  });
+
+  ws.addEventListener('message', (evento) => {
+    const mensagem = JSON.parse(evento.data);
+
+    if (mensagem.type === 'auth-error') {
+      // Chave nao autorizada, ou falha ao verificar a assinatura: desfaz o
+      // que ja foi preparado (mic ja capturado) e mostra o erro sem entrar
+      // na chamada. Marca como saida intencional para o listener de 'close'
+      // abaixo nao sobrescrever essa mensagem com o erro generico de
+      // conexao - o evento 'close' e assincrono, entao essa flag so volta a
+      // false no inicio da proxima tentativa de conexao (conectarWebSocket).
+      saindoIntencionalmente = true;
+      exibirErro(mensagem.message);
+      if (ws) { ws.close(); ws = null; }
+      if (localStream) { localStream.getTracks().forEach((track) => track.stop()); localStream = null; }
+      return;
+    }
+
+    if (mensagem.type === 'peers') {
+      myId = mensagem.self;
+      nomeSalaAtual.textContent = nomeDaSala;
+      mostrarTelaChamada();
+      mensagem.peers.forEach((peer) => obterOuCriarConexao(peer.id, peer.nome));
+      return;
+    }
+
+    if (mensagem.type === 'peer-joined') {
+      obterOuCriarConexao(mensagem.id, mensagem.nome);
+      return;
+    }
+
+    if (mensagem.type === 'signal') {
+      tratarSinal(mensagem.from, mensagem.data);
+      return;
+    }
+
+    if (mensagem.type === 'peer-left') {
+      const estado = peers.get(mensagem.id);
+      if (estado) {
+        estado.pc.close();
+        peers.delete(mensagem.id);
+      }
+      removerCardParticipante(mensagem.id);
+      removerTelaCompartilhada(mensagem.id);
+      return;
+    }
+  });
+
+  ws.addEventListener('close', () => {
+    if (saindoIntencionalmente) return;
+    exibirErro('Conexao com o servidor de sinalizacao foi perdida.');
+    sairDaSala();
+  });
+}
+
+function mostrarTelaChamada() {
+  emChamada = true;
+  telaInicial.hidden = true;
+  telaChamada.hidden = false;
+  criarCardLocal();
+}
+
+function mostrarTelaInicial() {
+  emChamada = false;
+  telaChamada.hidden = true;
+  telaInicial.hidden = false;
+  mensagemErro.hidden = true;
+}
+
+botaoSair.addEventListener('click', sairDaSala);
+
+function sairDaSala() {
+  saindoIntencionalmente = true;
+
+  if (document.fullscreenElement) document.exitFullscreen();
+
+  for (const estado of peers.values()) estado.pc.close();
+  peers.clear();
+
+  if (ws) { ws.close(); ws = null; }
+  if (localStream) { localStream.getTracks().forEach((track) => track.stop()); localStream = null; }
+  if (screenStream) { screenStream.getTracks().forEach((track) => track.stop()); screenStream = null; }
+
+  gridParticipantes.innerHTML = '';
+  nomesDosPeers.clear();
+  telasAtivas.clear();
+  focoAtual = null;
+  miniaturasVisiveis = true;
+  botaoAlternarMiniaturas.textContent = 'Ocultar participantes';
+  areaDestaque.hidden = true;
+  videoDestaque.srcObject = null;
+  miniaturasDestaque.innerHTML = '';
+  microfoneMutado = false;
+  botaoMutar.textContent = 'Mutar microfone';
+  botaoMutar.classList.remove('ativo');
+  botaoCompartilharTela.textContent = 'Compartilhar tela';
+  botaoTrocarTela.hidden = true;
+
+  mostrarTelaInicial();
+  // Note: nao reseta saindoIntencionalmente aqui - o evento 'close' do
+  // WebSocket que acabamos de fechar so dispara depois (e assincrono), e
+  // precisa ainda encontrar a flag true para nao mostrar erro indevido.
+  // Ela volta a false no inicio da proxima chamada a conectarWebSocket.
+}
+
+// ---------------------------------------------------------------------------
+// Microfone: mutar / desmutar
+// ---------------------------------------------------------------------------
+
+botaoMutar.addEventListener('click', () => {
+  microfoneMutado = !microfoneMutado;
+  if (localStream) {
+    localStream.getAudioTracks().forEach((track) => { track.enabled = !microfoneMutado; });
+  }
+  botaoMutar.textContent = microfoneMutado ? 'Ativar microfone' : 'Mutar microfone';
+  botaoMutar.classList.toggle('ativo', microfoneMutado);
+  atualizarStatusMicLocal();
+});
+
+// ---------------------------------------------------------------------------
+// Compartilhamento de tela
+// ---------------------------------------------------------------------------
+
+botaoCompartilharTela.addEventListener('click', () => {
+  if (screenStream) {
+    pararCompartilhamentoDeTela();
+  } else {
+    iniciarOuTrocarCompartilhamentoDeTela();
+  }
+});
+
+botaoTrocarTela.addEventListener('click', () => {
+  iniciarOuTrocarCompartilhamentoDeTela();
+});
+
+// Usada tanto para comecar a compartilhar quanto para trocar a janela/tela
+// compartilhada sem interromper a chamada: quando ja existe um
+// screenVideoSender, usamos replaceTrack (nao precisa parar e comecar de
+// novo, nem renegociar) - o outro lado ve a troca automaticamente, sem
+// nenhum evento extra, porque o track recebido continua sendo o mesmo
+// objeto, so o conteudo capturado muda.
+async function iniciarOuTrocarCompartilhamentoDeTela() {
+  const compartilharAudio = confirm('Deseja compartilhar tambem o audio da tela/janela escolhida?');
+
+  let novaStream;
+  try {
+    novaStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: compartilharAudio });
+  } catch (erro) {
+    console.error('Compartilhamento de tela cancelado ou falhou:', erro);
+    return;
+  }
+
+  const streamAnterior = screenStream;
+  screenStream = novaStream;
+  const novaVideoTrack = novaStream.getVideoTracks()[0];
+  const novaAudioTrack = novaStream.getAudioTracks()[0] || null;
+
+  for (const [, estado] of peers) {
+    if (estado.screenVideoSender) {
+      await estado.screenVideoSender.replaceTrack(novaVideoTrack);
+    } else {
+      estado.screenVideoSender = estado.pc.addTrack(novaVideoTrack, novaStream);
+    }
+
+    if (novaAudioTrack) {
+      if (estado.screenAudioSender) {
+        await estado.screenAudioSender.replaceTrack(novaAudioTrack);
+      } else {
+        estado.screenAudioSender = estado.pc.addTrack(novaAudioTrack, novaStream);
+      }
+    } else if (estado.screenAudioSender) {
+      // A nova tela nao tem audio, mas a anterior tinha - remove o sender.
+      estado.pc.removeTrack(estado.screenAudioSender);
+      estado.screenAudioSender = null;
+    }
+  }
+
+  // So para as tracks antigas depois de trocar todo mundo, para nao cortar
+  // video/audio no meio da troca.
+  if (streamAnterior) {
+    streamAnterior.getTracks().forEach((track) => track.stop());
+  }
+
+  // Se o usuario clicar em "Parar compartilhamento" pelo controle nativo
+  // do proprio navegador (fora do nosso botao), detectamos pelo evento
+  // 'ended' da track de video e encerramos do mesmo jeito.
+  novaVideoTrack.addEventListener('ended', pararCompartilhamentoDeTela);
+
+  mostrarPreviaLocalDeTela(screenStream);
+  const volumeAnterior = telasAtivas.get('local')?.volume ?? 1;
+  registrarTelaCompartilhada('local', 'Voce', screenStream, volumeAnterior);
+  botaoCompartilharTela.textContent = 'Parar compartilhamento';
+  botaoTrocarTela.hidden = false;
+}
+
+function pararCompartilhamentoDeTela() {
+  if (!screenStream) return;
+
+  for (const [, estado] of peers) {
+    if (estado.screenVideoSender) { estado.pc.removeTrack(estado.screenVideoSender); estado.screenVideoSender = null; }
+    if (estado.screenAudioSender) { estado.pc.removeTrack(estado.screenAudioSender); estado.screenAudioSender = null; }
+  }
+
+  screenStream.getTracks().forEach((track) => track.stop());
+  screenStream = null;
+
+  removerPreviaLocalDeTela();
+  removerTelaCompartilhada('local');
+  botaoCompartilharTela.textContent = 'Compartilhar tela';
+  botaoTrocarTela.hidden = true;
+}
+
+// ---------------------------------------------------------------------------
+// Area de destaque: quando alguem compartilha a tela, ela aparece grande
+// automaticamente. Com mais de uma pessoa compartilhando ao mesmo tempo,
+// aparecem miniaturas clicaveis para cada participante escolher qual quer
+// ver em destaque, independente do que os outros escolheram.
+// ---------------------------------------------------------------------------
+
+function registrarTelaCompartilhada(chave, nome, stream, volume = 1) {
+  telasAtivas.set(chave, { nome, stream, volume });
+  if (!focoAtual) focoAtual = chave;
+  atualizarAreaDestaque();
+}
+
+function removerTelaCompartilhada(chave) {
+  if (!telasAtivas.has(chave)) return;
+  telasAtivas.delete(chave);
+  if (focoAtual === chave) {
+    focoAtual = telasAtivas.size > 0 ? [...telasAtivas.keys()][0] : null;
+  }
+  atualizarAreaDestaque();
+}
+
+function focarTela(chave) {
+  if (!telasAtivas.has(chave)) return;
+  focoAtual = chave;
+  atualizarAreaDestaque();
+}
+
+function atualizarAreaDestaque() {
+  if (telasAtivas.size === 0) {
+    areaDestaque.hidden = true;
+    videoDestaque.srcObject = null;
+    miniaturasDestaque.innerHTML = '';
+    return;
+  }
+
+  areaDestaque.hidden = false;
+  const emDestaque = telasAtivas.get(focoAtual);
+  // Quando o foco e a nossa propria tela compartilhada, muta o video de
+  // destaque: o audio do sistema ja esta tocando direto no seu computador,
+  // reproduzi-lo de novo aqui causaria eco.
+  videoDestaque.muted = focoAtual === 'local';
+  if (videoDestaque.srcObject !== emDestaque.stream) {
+    videoDestaque.srcObject = emDestaque.stream;
+    // Alguns navegadores nao iniciam a reproducao automaticamente quando o
+    // srcObject e trocado via JS depois do carregamento da pagina, mesmo
+    // com o atributo autoplay - chamar play() explicitamente evita ficar
+    // com um quadro parado/preto.
+    videoDestaque.play().catch(() => {});
+    if (videoDestaque.setSinkId && saidaSelecionada) {
+      videoDestaque.setSinkId(saidaSelecionada).catch((erro) => console.error(erro));
+    }
+  }
+
+  // Cada tela guarda o proprio volume - ao trocar o foco, o slider reflete
+  // e reaplica o volume que ficou salvo para a tela agora em destaque.
+  videoDestaque.volume = emDestaque.volume;
+  inputVolumeDestaque.value = Math.round(emDestaque.volume * 100);
+  controleVolumeDestaque.hidden = focoAtual === 'local';
+
+  const temVariasTelas = telasAtivas.size > 1;
+  botaoAlternarMiniaturas.hidden = !temVariasTelas;
+  miniaturasDestaque.hidden = !temVariasTelas || !miniaturasVisiveis;
+
+  miniaturasDestaque.innerHTML = '';
+  if (temVariasTelas) {
+    for (const [chave, { nome, stream }] of telasAtivas) {
+      const botao = document.createElement('button');
+      botao.type = 'button';
+      botao.className = 'miniatura-tela' + (chave === focoAtual ? ' ativo' : '');
+      botao.addEventListener('click', () => focarTela(chave));
+
+      const video = document.createElement('video');
+      video.autoplay = true;
+      video.playsInline = true;
+      video.muted = true; // so o video em destaque toca audio, para nao dobrar o som
+      video.srcObject = stream;
+
+      const rotulo = document.createElement('span');
+      rotulo.className = 'miniatura-nome';
+      rotulo.textContent = nome;
+
+      botao.appendChild(video);
+      botao.appendChild(rotulo);
+      miniaturasDestaque.appendChild(botao);
+    }
+  }
+}
+
+// Botao para mostrar/ocultar a faixa de miniaturas por cima do video (util
+// principalmente em tela cheia, para uma visualizacao limpa quando quiser).
+botaoAlternarMiniaturas.addEventListener('click', () => {
+  miniaturasVisiveis = !miniaturasVisiveis;
+  botaoAlternarMiniaturas.textContent = miniaturasVisiveis ? 'Ocultar participantes' : 'Mostrar participantes';
+  atualizarAreaDestaque();
+});
+
+// Volume da tela em destaque - guardado por tela (telasAtivas), nao um
+// volume unico global, para lembrar o nivel de cada compartilhamento
+// mesmo depois de trocar o foco e voltar.
+inputVolumeDestaque.addEventListener('input', () => {
+  const volume = Number(inputVolumeDestaque.value) / 100;
+  videoDestaque.volume = volume;
+  const entrada = telasAtivas.get(focoAtual);
+  if (entrada) entrada.volume = volume;
+});
+
+// ---------------------------------------------------------------------------
+// Tela cheia (opcional - nunca automatico): usa a Fullscreen API nativa do
+// navegador no wrapper que contem o video de destaque e a faixa de
+// miniaturas, para as duas coisas ficarem visiveis juntas em tela cheia.
+// ---------------------------------------------------------------------------
+
+botaoTelaCheia.addEventListener('click', () => {
+  if (document.fullscreenElement) {
+    document.exitFullscreen();
+  } else {
+    destaqueWrapper.requestFullscreen().catch((erro) => console.error('Erro ao entrar em tela cheia:', erro));
+  }
+});
+
+document.addEventListener('fullscreenchange', () => {
+  const emTelaCheia = document.fullscreenElement === destaqueWrapper;
+  botaoTelaCheia.textContent = emTelaCheia ? 'Sair da tela cheia' : 'Tela cheia';
+});
+
+// ---------------------------------------------------------------------------
+// WebRTC: criacao de conexoes e "perfect negotiation"
+//
+// Cada par de peers decide quem e "polite" (cede em caso de colisao de
+// ofertas) comparando os ids recebidos do servidor: quem tem o id
+// lexicograficamente menor e o lado polite. Isso e determinístico e os
+// dois lados chegam ao mesmo resultado sem precisar combinar nada.
+// ---------------------------------------------------------------------------
+
+function obterOuCriarConexao(peerId, nome) {
+  return peers.get(peerId) || criarConexao(peerId, nome);
+}
+
+function criarConexao(peerId, nome) {
+  const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+  const estado = {
+    pc,
+    polite: myId < peerId,
+    makingOffer: false,
+    ignoreOffer: false,
+    micSender: null,
+    screenVideoSender: null,
+    screenAudioSender: null,
+  };
+  peers.set(peerId, estado);
+
+  criarCardParticipante(peerId, nome);
+
+  if (localStream) {
+    const micTrack = localStream.getAudioTracks()[0];
+    if (micTrack) estado.micSender = pc.addTrack(micTrack, localStream);
+  }
+
+  // Se ja estamos compartilhando tela quando esse peer chega, propaga
+  // tambem para a nova conexao.
+  if (screenStream) {
+    for (const track of screenStream.getTracks()) {
+      const sender = pc.addTrack(track, screenStream);
+      if (track.kind === 'video') estado.screenVideoSender = sender;
+      else estado.screenAudioSender = sender;
+    }
+  }
+
+  pc.onnegotiationneeded = async () => {
+    try {
+      estado.makingOffer = true;
+      await pc.setLocalDescription();
+      enviarSinal(peerId, { description: pc.localDescription });
+    } catch (erro) {
+      console.error('Erro ao negociar com', peerId, erro);
+    } finally {
+      estado.makingOffer = false;
+    }
+  };
+
+  pc.onicecandidate = ({ candidate }) => {
+    if (candidate) enviarSinal(peerId, { candidate });
+  };
+
+  pc.ontrack = (evento) => tratarTrackRemota(peerId, evento);
+
+  return estado;
+}
+
+async function tratarSinal(peerId, dados) {
+  const estado = obterOuCriarConexao(peerId);
+  const { pc } = estado;
+
+  try {
+    if (dados.description) {
+      // Colisao de ofertas: os dois lados mandaram offer ao mesmo tempo.
+      // O lado "impolite" ignora a offer recebida e mantem a sua; o lado
+      // "polite" aceita a offer recebida, descartando a propria.
+      const colisao = dados.description.type === 'offer'
+        && (estado.makingOffer || pc.signalingState !== 'stable');
+      estado.ignoreOffer = !estado.polite && colisao;
+      if (estado.ignoreOffer) return;
+
+      await pc.setRemoteDescription(dados.description);
+      if (dados.description.type === 'offer') {
+        await pc.setLocalDescription();
+        enviarSinal(peerId, { description: pc.localDescription });
+      }
+      verificarTelaEncerrada(peerId, estado);
+    } else if (dados.candidate) {
+      try {
+        await pc.addIceCandidate(dados.candidate);
+      } catch (erro) {
+        if (!estado.ignoreOffer) throw erro;
+      }
+    }
+  } catch (erro) {
+    console.error('Erro ao processar sinal de', peerId, erro);
+  }
+}
+
+function enviarSinal(to, data) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'signal', to, data }));
+  }
+}
+
+// Uma track remota chega associada a uma MediaStream original do lado de
+// quem enviou (mic ou tela). Usamos o id dessa stream como chave para
+// saber se ja existe um elemento de midia para ela ou se precisa criar um.
+function tratarTrackRemota(peerId, evento) {
+  const card = criarCardParticipante(peerId);
+  const stream = evento.streams[0] || new MediaStream([evento.track]);
+  const container = card.querySelector('.midias');
+
+  // Garante que existe um elemento de midia para essa stream, criando um
+  // novo se for a primeira vez (ou se um anterior foi removido por causa
+  // de um 'mute'/'ended'). Reaproveitada tambem no 'unmute', quando o
+  // outro lado retoma o envio dessa mesma track.
+  function garantirElementoDeMidia() {
+    let elemento = container.querySelector(`[data-stream-id="${stream.id}"]`);
+    if (!elemento) {
+      elemento = document.createElement(evento.track.kind === 'video' ? 'video' : 'audio');
+      elemento.autoplay = true;
+      elemento.playsInline = true;
+      elemento.dataset.streamId = stream.id;
+      if (evento.track.kind === 'video') {
+        elemento.classList.add('video-remoto');
+        // O audio dessa mesma stream (se houver, ex. audio do sistema da tela
+        // compartilhada) toca pelo video em destaque, nao por essa miniatura -
+        // sem isso, o mesmo audio tocaria duas vezes (eco).
+        elemento.muted = true;
+      }
+      container.appendChild(elemento);
+      if (elemento.setSinkId && saidaSelecionada) {
+        elemento.setSinkId(saidaSelecionada).catch((erro) => console.error(erro));
+      }
+    }
+    elemento.srcObject = stream;
+    elemento.play().catch(() => {});
+    return elemento;
+  }
+
+  let elemento = garantirElementoDeMidia();
+
+  // Uma track de video de um peer so pode ser tela compartilhada (nao ha
+  // webcam no app) - registra essa pessoa como "compartilhando" para
+  // aparecer na area de destaque.
+  if (evento.track.kind === 'video') {
+    registrarTelaCompartilhada(peerId, nomesDosPeers.get(peerId) || 'Participante', stream);
+  }
+
+  // Nota: o evento 'mute' da track NAO e um sinal confiavel aqui para
+  // detectar quando o peer remoto para de compartilhar via removeTrack
+  // (em testes, o 'muted' do receiver fica true o tempo todo, sem refletir
+  // se ha midia realmente chegando). O sinal confiavel e checar a direcao
+  // do transceiver depois de cada renegociacao - feito em
+  // verificarTelaEncerrada, chamada a partir de tratarSinal.
+  evento.track.addEventListener('ended', () => {
+    elemento.remove();
+    if (evento.track.kind === 'video') removerTelaCompartilhada(peerId);
+  });
+}
+
+// Depois de toda renegociacao (troca de offer/answer), confere se o
+// transceiver de video desse peer deixou de receber (currentDirection nao
+// inclui mais "recv") - e o sinal confiavel de que o outro lado parou de
+// compartilhar a tela dele via removeTrack. Se sim, remove a miniatura do
+// card e o registro na area de destaque.
+function verificarTelaEncerrada(peerId, estado) {
+  const transceiverDeVideo = estado.pc.getTransceivers()
+    .find((t) => t.receiver && t.receiver.track && t.receiver.track.kind === 'video');
+
+  const recebendoVideo = transceiverDeVideo
+    && (transceiverDeVideo.currentDirection === 'recvonly' || transceiverDeVideo.currentDirection === 'sendrecv');
+
+  if (!recebendoVideo && telasAtivas.has(peerId)) {
+    const elementoAntigo = document.querySelector(`#card-${peerId} .video-remoto`);
+    if (elementoAntigo) elementoAntigo.remove();
+    removerTelaCompartilhada(peerId);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Elementos visuais (cards dos participantes)
+// ---------------------------------------------------------------------------
+
+function criarCardParticipante(peerId, nome) {
+  let card = document.getElementById(`card-${peerId}`);
+  if (card) return card;
+
+  if (nome) nomesDosPeers.set(peerId, nome);
+  const nomeExibido = nomesDosPeers.get(peerId) || `Participante ${peerId.slice(0, 8)}`;
+
+  card = document.createElement('div');
+  card.className = 'card-participante';
+  card.id = `card-${peerId}`;
+  card.innerHTML = `
+    <div class="nome-participante">${escaparHtml(nomeExibido)}</div>
+    <div class="midias"></div>
+  `;
+  gridParticipantes.appendChild(card);
+  return card;
+}
+
+function removerCardParticipante(peerId) {
+  const card = document.getElementById(`card-${peerId}`);
+  if (card) card.remove();
+  nomesDosPeers.delete(peerId);
+}
+
+// Escapa texto vindo de fora (nomes de chaves-autorizadas.json) antes de
+// inserir no innerHTML, para nao permitir injecao de HTML/script.
+function escaparHtml(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto;
+  return div.innerHTML;
+}
+
+function criarCardLocal() {
+  if (document.getElementById('card-local')) return;
+  const card = document.createElement('div');
+  card.className = 'card-participante card-local';
+  card.id = 'card-local';
+  card.innerHTML = `
+    <div class="nome-participante">Voce</div>
+    <div class="midias"></div>
+    <div class="status-mic" id="status-mic-local">Microfone ativo</div>
+  `;
+  gridParticipantes.prepend(card);
+}
+
+function atualizarStatusMicLocal() {
+  const status = document.getElementById('status-mic-local');
+  if (status) status.textContent = microfoneMutado ? 'Microfone mutado' : 'Microfone ativo';
+}
+
+function mostrarPreviaLocalDeTela(stream) {
+  const card = document.getElementById('card-local');
+  if (!card) return;
+
+  // Reaproveita o elemento se ja existir (ex. ao trocar de tela sem parar
+  // de compartilhar) - so troca o srcObject, sem duplicar o video.
+  let video = document.getElementById('previa-tela-local');
+  if (!video) {
+    video = document.createElement('video');
+    video.id = 'previa-tela-local';
+    video.autoplay = true;
+    video.playsInline = true;
+    video.muted = true; // evita eco do audio do sistema sendo tocado de volta localmente
+    video.className = 'video-remoto';
+    card.querySelector('.midias').appendChild(video);
+  }
+  video.srcObject = stream;
+}
+
+function removerPreviaLocalDeTela() {
+  const video = document.getElementById('previa-tela-local');
+  if (video) video.remove();
+}
+</script>
+</body>
+</html>
