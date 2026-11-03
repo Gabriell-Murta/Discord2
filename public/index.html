@@ -1049,16 +1049,16 @@ function tratarTrackRemota(peerId, evento) {
       elemento.dataset.streamId = stream.id;
       if (evento.track.kind === 'video') {
         elemento.classList.add('video-remoto');
-        // O audio dessa mesma stream (se houver, ex. audio do sistema da tela
-        // compartilhada) toca pelo video em destaque, nao por essa miniatura -
-        // sem isso, o mesmo audio tocaria duas vezes (eco).
-        elemento.muted = true;
       }
       container.appendChild(elemento);
       if (elemento.setSinkId && saidaSelecionada) {
         elemento.setSinkId(saidaSelecionada).catch((erro) => console.error(erro));
       }
     }
+    // O audio da tela toca somente no destaque. Reaplica mesmo ao reutilizar
+    // um <audio>: a track de audio pode chegar antes da track de video.
+    // Streams apenas de microfone continuam audiveis no card.
+    elemento.muted = evento.track.kind === 'video' || stream.getVideoTracks().length > 0;
     elemento.srcObject = stream;
     elemento.play().catch(() => {});
     return elemento;
