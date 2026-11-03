@@ -33,6 +33,22 @@ app.use(express.static('public'));
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
+// Mantem o tunel ativo mesmo quando so ha midia P2P (sem signaling).
+// O navegador responde ao ping com pong automaticamente, sem timers na aba.
+const heartbeat = setInterval(() => {
+  for (const ws of wss.clients) {
+    if (ws.readyState !== ws.OPEN) continue;
+    if (!ws.isAlive) {
+      ws.terminate();
+      continue;
+    }
+    ws.isAlive = false;
+    ws.ping();
+  }
+}, 30_000);
+
+wss.on('close', () => clearInterval(heartbeat));
+
 // rooms: nome da sala -> Set de conexoes WebSocket dos clientes presentes.
 const rooms = new Map();
 
@@ -118,6 +134,10 @@ wss.on('connection', (ws) => {
   // no "perfect negotiation" (comparando ids).
   ws.id = crypto.randomUUID();
   ws.room = null;
+  ws.isAlive = true;
+  ws.on('pong', () => {
+    ws.isAlive = true;
+  });
 
   ws.on('message', async (raw) => {
     let message;
